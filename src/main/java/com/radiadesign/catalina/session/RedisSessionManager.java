@@ -1,25 +1,16 @@
 package com.radiadesign.catalina.session;
 
-import org.apache.catalina.Globals;
-import org.apache.catalina.Lifecycle;
-import org.apache.catalina.LifecycleException;
-import org.apache.catalina.LifecycleListener;
-import org.apache.catalina.util.LifecycleSupport;
-import org.apache.catalina.Loader;
-import org.apache.catalina.Valve;
-import org.apache.catalina.Session;
+import org.apache.catalina.*;
 import org.apache.catalina.session.ManagerBase;
-
+import org.apache.catalina.util.LifecycleSupport;
+import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
-import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Protocol;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -33,6 +24,7 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
   protected String host = "localhost";
   protected int port = 6379;
   protected int database = 0;
+  protected boolean ssl = false;
   protected String password = null;
   protected int timeout = Protocol.DEFAULT_TIMEOUT;
   protected JedisPool connectionPool;
@@ -90,6 +82,18 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
 
   public void setPassword(String password) {
     this.password = password;
+  }
+
+  public boolean isSsl() {
+    return ssl;
+  }
+
+  public void setSsl(boolean ssl) {
+    this.ssl = true;
+  }
+
+  public void setSsl(String ssl) {
+    setSsl(Arrays.asList("true", "yes", "on", "1").contains(ssl.toLowerCase()));
   }
 
   public void setSerializationStrategyClass(String strategy) {
@@ -464,8 +468,10 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
 
   private void initializeDatabaseConnection() throws LifecycleException {
     try {
+      log.info(String.format("host: %s, port, %d, timeout: %d, password: %s, ssl: %b", getHost(), getPort(), getTimeout(), getPassword(), isSsl()));
+
       // TODO: Allow configuration of pool (such as size...)
-      connectionPool = new JedisPool(new JedisPoolConfig(), getHost(), getPort(), getTimeout(), getPassword());
+      connectionPool = new JedisPool(new JedisPoolConfig(), getHost(), getPort(), getTimeout(), getPassword(), isSsl());
     } catch (Exception e) {
       e.printStackTrace();
       throw new LifecycleException("Error Connecting to Redis", e);
