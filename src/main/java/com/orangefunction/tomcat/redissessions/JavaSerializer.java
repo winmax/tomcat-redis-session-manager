@@ -32,14 +32,14 @@ public class JavaSerializer implements Serializer {
 
     byte[] serialized = null;
 
-    try (
-         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-         ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(bos));
-    ) {
+    try {
+      ByteArrayOutputStream bos = new ByteArrayOutputStream();
+      ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(bos));
       oos.writeUnshared(attributes);
       oos.flush();
       serialized = bos.toByteArray();
     }
+    finally { }
 
     MessageDigest digester = null;
     try {
@@ -54,28 +54,27 @@ public class JavaSerializer implements Serializer {
   public byte[] serializeFrom(RedisSession session, SessionSerializationMetadata metadata) throws IOException {
     byte[] serialized = null;
 
-    try (
-         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-         ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(bos));
-    ) {
+    try {
+      ByteArrayOutputStream bos = new ByteArrayOutputStream();
+      ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(bos));
       oos.writeObject(metadata);
       session.writeObjectData(oos);
       oos.flush();
       serialized = bos.toByteArray();
     }
+    finally { }
 
     return serialized;
   }
 
   @Override
   public void deserializeInto(byte[] data, RedisSession session, SessionSerializationMetadata metadata) throws IOException, ClassNotFoundException {
-    try(
-        BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(data));
-        ObjectInputStream ois = new CustomObjectInputStream(bis, loader);
-    ) {
+    try {
+      BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(data));
+      ObjectInputStream ois = new CustomObjectInputStream(bis, loader);
       SessionSerializationMetadata serializedMetadata = (SessionSerializationMetadata)ois.readObject();
       metadata.copyFieldsFrom(serializedMetadata);
       session.readObjectData(ois);
-    }
+    } finally { }
   }
 }

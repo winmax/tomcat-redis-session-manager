@@ -58,6 +58,7 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
   protected int port = 6379;
   protected int database = 0;
   protected String password = null;
+  protected boolean ssl;
   protected int timeout = Protocol.DEFAULT_TIMEOUT;
   protected String sentinelMaster = null;
   Set<String> sentinelSet = null;
@@ -66,10 +67,10 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
   protected JedisPoolConfig connectionPoolConfig = new JedisPoolConfig();
 
   protected RedisSessionHandlerValve handlerValve;
-  protected ThreadLocal<RedisSession> currentSession = new ThreadLocal<>();
-  protected ThreadLocal<SessionSerializationMetadata> currentSessionSerializationMetadata = new ThreadLocal<>();
-  protected ThreadLocal<String> currentSessionId = new ThreadLocal<>();
-  protected ThreadLocal<Boolean> currentSessionIsPersisted = new ThreadLocal<>();
+  protected ThreadLocal<RedisSession> currentSession = new ThreadLocal<RedisSession>();
+  protected ThreadLocal<SessionSerializationMetadata> currentSessionSerializationMetadata = new ThreadLocal<SessionSerializationMetadata>();
+  protected ThreadLocal<String> currentSessionId = new ThreadLocal<String>();
+  protected ThreadLocal<Boolean> currentSessionIsPersisted = new ThreadLocal<Boolean>();
   protected Serializer serializer;
 
   protected static String name = "RedisSessionManager";
@@ -121,6 +122,20 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
 
   public void setPassword(String password) {
     this.password = password;
+  }
+
+  public boolean isSsl() {
+    return ssl;
+  }
+
+  public void setSsl(boolean ssl) {
+    this.ssl = ssl;
+  }
+
+  public void setSsl(String ssl) {
+    if (ssl != null) {
+      setSsl(Arrays.asList("1", "on", "true", "yes").contains(ssl.toLowerCase()));
+    }
   }
 
   public void setSerializationStrategyClass(String strategy) {
@@ -293,7 +308,13 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
 
     try {
       initializeSerializer();
-    } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+    } catch (ClassNotFoundException e) {
+      log.fatal("Unable to load serializer", e);
+      throw new LifecycleException(e);
+    } catch (InstantiationException e) {
+      log.fatal("Unable to load serializer", e);
+      throw new LifecycleException(e);
+    } catch (IllegalAccessException e) {
       log.fatal("Unable to load serializer", e);
       throw new LifecycleException(e);
     }
@@ -700,7 +721,7 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
           throw new LifecycleException("Error configuring Redis Sentinel connection pool: expected both `sentinelMaster` and `sentiels` to be configured");
         }
       } else {
-        connectionPool = new JedisPool(this.connectionPoolConfig, getHost(), getPort(), getTimeout(), getPassword());
+        connectionPool = new JedisPool(this.connectionPoolConfig, getHost(), getPort(), getTimeout(), getPassword(), isSsl());
       }
     } catch (Exception e) {
       e.printStackTrace();
